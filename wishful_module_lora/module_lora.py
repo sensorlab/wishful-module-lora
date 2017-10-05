@@ -16,6 +16,11 @@ __email__ = "matevz.vucnik@ijs.si"
 @wishful_module.build_module
 class LoraModule(wishful_module.AgentModule):
     node = None
+    freq = 868000000
+    bw = 125
+    sf = 7
+    cr = "4_5"
+    pwr = 6
     
     def __init__(self, service, serial):
         super(LoraModule, self).__init__()
@@ -28,16 +33,71 @@ class LoraModule(wishful_module.AgentModule):
 
     @wishful_module.bind_function(upis.radio.set_parameters)
     def set_parameters(self, params):
-        return "hello"
+        set_sf = 0
+        if 7 <= params['SF'] <= 12:
+            self.sf = params['SF']
+        else:
+            set_sf = 1
+        
+        set_cr = 0
+        crs = ['4_5', '4_6', '4_7', '4_8']
+        if params['CR'] in crs:
+            self.cr = params['CR']
+        else:
+            set_cr = 1
+
+        return {"SF": set_sf, "CR": set_cr}
 
     @wishful_module.bind_function(upis.radio.set_tx_power)
-    def set_tx_power(self, params):
-        return "hello"
+    def set_tx_power(self, power):
+        if 2 <= power <= 14:
+            self.pwr = power
+            return 0
+        else:
+            return 1
 
     @wishful_module.bind_function(upis.radio.set_rxchannel)
-    def set_rxchannel(self, params):
-        return "hello"
+    def set_rxchannel(self, freq_Hz, bandwidth):
+        if 860000000 <= freq_Hz <= 920000000:
+            self.freq = freq_Hz
+        else:
+            return 1
+        
+        bws = [125, 250, 500]
+        if bandwidth in bws:
+            self.bw = bandwidth
+            return 0
+        else:
+            return 1
 
     @wishful_module.bind_function(upis.radio.set_txchannel)
-    def set_txchannel(self, params):
-        return "hello"
+    def set_txchannel(self, freq_Hz, bandwidth):
+        if 860000000 <= freq_Hz <= 920000000:
+            self.freq = freq_Hz
+        else:
+            return 1
+        
+        bws = [125, 250, 500]
+        if bandwidth in bws:
+            self.bw = bandwidth
+            return 0
+        else:
+            return 1
+
+    @wishful_module.bind_function(upis.net.inject_frame)
+    def inject_frame(self, iface, frame, is_layer_2_packet, tx_count=1, pkt_interval=1):
+        if 1 <= len(str(frame)) <= 64:
+            res = self.node.post("loraTxStart", frame, "frequency="+str(self.freq)+"&bw="+str(self.bw)+"&sf="+str(self.sf)+"&cr="+self.cr+"&pwr="+str(self.pwr))
+            return res.decode('ascii').strip()
+        else:
+            return "Frame size must be between 1 and 64 bytes!"
+
+    @wishful_module.bind_function(upis.net.sniff_layer2_traffic)
+    def sniff_layer2_traffic(self, iface, sniff_timeout):
+        res = self.node.get("loraRxStart", "frequency="+str(self.freq)+"&bw="+str(self.bw)+"&sf="+str(self.sf)+"&cr="+self.cr)
+        for i in range(sniff_timeout):
+            res = self.node.get("loraRxRead")
+            if res.decode('ascii').strip() != "No packet received":
+                break
+            time.sleep(1)
+        return res.decode('ascii').strip()
