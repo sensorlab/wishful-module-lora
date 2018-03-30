@@ -26,7 +26,7 @@ class LoraModule(wishful_module.AgentModule):
     def __init__(self, dev):
         super(LoraModule, self).__init__()
         self.log = logging.getLogger('LoraModule')
-        ser = serial.Serial(dev, 115200)
+        ser = serial.Serial(dev, 115200, timeout=1)
         self.node = alh.ALHTerminal(ser)
 
     @wishful_module.bind_function(upis.radio.get_radio_info)
