@@ -31,7 +31,7 @@ class LoraModule(wishful_module.AgentModule):
 
     @wishful_module.bind_function(upis.radio.get_radio_info)
     def get_radio_info(self, platform_id):
-        return str(self.node.get("loraRadioInfo")).strip()
+        return self.node.get("loraRadioInfo").text
 
     @wishful_module.bind_function(upis.radio.set_parameters)
     def set_parameters(self, params):
@@ -90,7 +90,7 @@ class LoraModule(wishful_module.AgentModule):
     def inject_frame(self, iface, frame, is_layer_2_packet, tx_count=1, pkt_interval=1):
         if 1 <= len(str(frame)) <= 64:
             res = self.node.post("loraTxStart", frame, "frequency="+str(self.freq)+"&bw="+str(self.bw)+"&sf="+str(self.sf)+"&cr="+self.cr+"&pwr="+str(self.pwr))
-            return str(res).strip()
+            return res.text
         else:
             return "Frame size must be between 1 and 64 bytes!"
 
@@ -99,7 +99,7 @@ class LoraModule(wishful_module.AgentModule):
         res = self.node.get("loraRxStart", "frequency="+str(self.freq)+"&bw="+str(self.bw)+"&sf="+str(self.sf)+"&cr="+self.cr)
         for i in range(sniff_timeout):
             res = self.node.get("loraRxRead")
-            if str(res).strip() != "No packet received":
+            if res.text != "No packet received":
                 break
             time.sleep(1)
-        return str(res).strip()
+        return res.text
